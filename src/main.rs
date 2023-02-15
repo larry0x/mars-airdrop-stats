@@ -117,13 +117,11 @@ async fn main() -> Result<(), Error> {
                 .into_inner()
                 .delegation_responses
                 .into_iter()
-                .try_fold(0u128, |total, del| -> Result<_, Error> {
-                    let amount = del
-                        .balance
-                        .map(|coin| coin.amount.parse::<u128>())
-                        .transpose()?
-                        .unwrap_or(0);
-                    Ok(total + amount)
+                .try_fold(0u128, |mut total, del| -> Result<_, Error> {
+                    if let Some(coin) = del.balance {
+                        total += coin.amount.parse::<u128>()?;
+                    }
+                    Ok(total)
                 })?;
 
             let output = Output {
