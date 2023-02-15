@@ -55,11 +55,11 @@ enum Error {
 pub struct Cli {
     /// Input JSON file containing airdrop data
     #[arg(long)]
-    pub input: PathBuf,
+    pub input: Option<PathBuf>,
 
     /// Output file containing user sequence and staked amount
     #[arg(long)]
-    pub output: PathBuf,
+    pub output: Option<PathBuf>,
 
     /// URL to a gRPC endpoint
     #[arg(long)]
@@ -68,15 +68,22 @@ pub struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let cli = Cli::parse();
+    let Cli {
+        input,
+        output,
+        grpc_url,
+    } = Cli::parse();
 
-    let airdrop_data = fs::read_to_string(&cli.input)?;
-    let mut users: Vec<Input> = serde_json::from_str(&airdrop_data)?;
+    let input_path = input.unwrap_or(PathBuf::from("./data/airdrop.json"));
+    let output_path = output.unwrap_or(PathBuf::from("./data/output.json"));
+
+    let input_str = fs::read_to_string(&input_path)?;
+    let mut users: Vec<Input> = serde_json::from_str(&input_str)?;
     users.truncate(5);
 
     let output = future::try_join_all(users.into_iter().map(|user| {
         // https://stackoverflow.com/questions/66429545/clone-a-string-for-an-async-move-closure-in-rust
-        let grpc_url = cli.grpc_url.clone();
+        let grpc_url = grpc_url.clone();
         async move {
             let sequence = cosmos::auth::v1beta1::query_client::QueryClient::connect(grpc_url.clone())
                 .await?
@@ -130,7 +137,7 @@ async fn main() -> Result<(), Error> {
     .await?;
 
     let output_str = serde_json::to_string_pretty(&output)?;
-    fs::write(&cli.output, output_str)?;
+    fs::write(&output_path, output_str)?;
 
     Ok(())
 }
