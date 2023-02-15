@@ -81,8 +81,7 @@ async fn main() -> Result<(), Error> {
     let output_path = output.unwrap_or(PathBuf::from("./data/output.json"));
 
     let input_str = fs::read_to_string(&input_path)?;
-    let mut users: Vec<Input> = serde_json::from_str(&input_str)?;
-    users.truncate(5);
+    let users: Vec<Input> = serde_json::from_str(&input_str)?;
 
     let output = future::try_join_all(users.into_iter().map(|user| {
         // https://stackoverflow.com/questions/66429545/clone-a-string-for-an-async-move-closure-in-rust
