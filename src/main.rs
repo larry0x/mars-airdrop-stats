@@ -127,8 +127,7 @@ async fn main() -> Result<(), Error> {
             Result::<_, Error>::Ok(output)
         }
     }))
-    .await
-    .unwrap();
+    .await?;
 
     let output_str = serde_json::to_string_pretty(&output)?;
     fs::write(&cli.output, output_str)?;
