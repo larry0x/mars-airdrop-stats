@@ -2,7 +2,6 @@ use std::{fs, path::PathBuf};
 
 use clap::Parser;
 use cosmos_sdk_proto::{cosmos, traits::MessageExt};
-use futures::future;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
@@ -83,61 +82,57 @@ async fn main() -> Result<(), Error> {
     let input_str = fs::read_to_string(&input_path)?;
     let users: Vec<Input> = serde_json::from_str(&input_str)?;
 
-    let mut output = future::try_join_all(users.into_iter().map(|user| {
-        // https://stackoverflow.com/questions/66429545/clone-a-string-for-an-async-move-closure-in-rust
-        let grpc_url = grpc_url.clone();
-        async move {
-            let (_, bytes, variant) = bech32::decode(&user.address)?;
-            let address = bech32::encode("mars", bytes, variant)?;
+    let mut output = vec![];
 
-            let sequence = cosmos::auth::v1beta1::query_client::QueryClient::connect(grpc_url.clone())
-                .await?
-                .account(cosmos::auth::v1beta1::QueryAccountRequest {
-                    address: address.clone(),
-                })
-                .await?
-                .into_inner()
-                .account
-                .as_ref()
-                .map(<cosmos::auth::v1beta1::BaseAccount>::from_any)
-                .transpose()?
-                .ok_or_else(|| Error::AccountNotFound {
-                    address: address.clone(),
-                })?
-                .sequence;
+    for user in users {
+        let (_, bytes, variant) = bech32::decode(&user.address)?;
+        let address = bech32::encode("mars", bytes, variant)?;
 
-            let staked_amount = cosmos::staking::v1beta1::query_client::QueryClient::connect(grpc_url)
-                .await?
-                .delegator_delegations(cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
-                    delegator_addr: address.clone(),
-                    pagination: None,
-                })
-                .await?
-                .into_inner()
-                .delegation_responses
-                .into_iter()
-                .try_fold(0u128, |mut total, del| -> Result<_, Error> {
-                    if let Some(coin) = del.balance {
-                        total += coin.amount.parse::<u128>()?;
-                    }
-                    Ok(total)
-                })?;
+        let sequence = cosmos::auth::v1beta1::query_client::QueryClient::connect(grpc_url.clone())
+            .await?
+            .account(cosmos::auth::v1beta1::QueryAccountRequest {
+                address: address.clone(),
+            })
+            .await?
+            .into_inner()
+            .account
+            .as_ref()
+            .map(<cosmos::auth::v1beta1::BaseAccount>::from_any)
+            .transpose()?
+            .ok_or_else(|| Error::AccountNotFound {
+                address: address.clone(),
+            })?
+            .sequence;
 
-            let output = Output {
-                address,
-                sequence,
-                airdrop_amount: user.amount,
-                staked_amount,
-            };
+        let staked_amount = cosmos::staking::v1beta1::query_client::QueryClient::connect(grpc_url.clone())
+            .await?
+            .delegator_delegations(cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
+                delegator_addr: address.clone(),
+                pagination: None,
+            })
+            .await?
+            .into_inner()
+            .delegation_responses
+            .into_iter()
+            .try_fold(0u128, |mut total, del| -> Result<_, Error> {
+                if let Some(coin) = del.balance {
+                    total += coin.amount.parse::<u128>()?;
+                }
+                Ok(total)
+            })?;
 
-            let output_str = serde_json::to_string(&output)?;
-            println!("{output_str}");
+        let output_item = Output {
+            address,
+            sequence,
+            airdrop_amount: user.amount,
+            staked_amount,
+        };
 
-            // can i do this type annotation in a better way?
-            Result::<_, Error>::Ok(output)
-        }
-    }))
-    .await?;
+        let output_item_str = serde_json::to_string(&output_item)?;
+        println!("{output_item_str}");
+
+        output.push(output_item);
+    }
 
     output.sort_by(|a, b| a.address.cmp(&b.address));
 
