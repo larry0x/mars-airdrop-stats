@@ -45,6 +45,9 @@ enum Error {
     #[error(transparent)]
     Status(#[from] tonic::Status),
 
+    #[error(transparent)]
+    Bech32(#[from] bech32::Error),
+
     #[error("Account not found: {address}")]
     AccountNotFound {
         address: String,
@@ -85,10 +88,13 @@ async fn main() -> Result<(), Error> {
         // https://stackoverflow.com/questions/66429545/clone-a-string-for-an-async-move-closure-in-rust
         let grpc_url = grpc_url.clone();
         async move {
+            let (_, bytes, variant) = bech32::decode(&user.address)?;
+            let address = bech32::encode("mars", bytes, variant)?;
+
             let sequence = cosmos::auth::v1beta1::query_client::QueryClient::connect(grpc_url.clone())
                 .await?
                 .account(cosmos::auth::v1beta1::QueryAccountRequest {
-                    address: user.address.clone(),
+                    address: address.clone(),
                 })
                 .await?
                 .into_inner()
@@ -97,14 +103,14 @@ async fn main() -> Result<(), Error> {
                 .map(<cosmos::auth::v1beta1::BaseAccount>::from_any)
                 .transpose()?
                 .ok_or_else(|| Error::AccountNotFound {
-                    address: user.address.clone(),
+                    address: address.clone(),
                 })?
                 .sequence;
 
             let staked_amount = cosmos::staking::v1beta1::query_client::QueryClient::connect(grpc_url)
                 .await?
                 .delegator_delegations(cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
-                    delegator_addr: user.address.clone(),
+                    delegator_addr: address.clone(),
                     pagination: None,
                 })
                 .await?
@@ -121,7 +127,7 @@ async fn main() -> Result<(), Error> {
                 })?;
 
             let output = Output {
-                address: user.address,
+                address,
                 sequence,
                 airdrop_amount: user.amount,
                 staked_amount,

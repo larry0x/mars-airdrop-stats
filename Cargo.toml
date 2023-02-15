@@ -12,6 +12,7 @@ documentation = "https://github.com/steak-enjoyers/rust-template#README"
 keywords      = ["template"]
 
 [dependencies]
+bech32           = "0.9"
 clap             = { version = "4", features = ["derive"] }
 cosmos-sdk-proto = { version = "0.16", features = ["grpc"] }
 futures          = "0.3"
