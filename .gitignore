@@ -1,6 +1,9 @@
 # rust
 target/
 
+# python
+.ipynb_checkpoints/
+
 # editors
 .idea/
 .vscode/
