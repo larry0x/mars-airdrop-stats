@@ -83,7 +83,7 @@ async fn main() -> Result<(), Error> {
     let input_str = fs::read_to_string(&input_path)?;
     let users: Vec<Input> = serde_json::from_str(&input_str)?;
 
-    let output = future::try_join_all(users.into_iter().map(|user| {
+    let mut output = future::try_join_all(users.into_iter().map(|user| {
         // https://stackoverflow.com/questions/66429545/clone-a-string-for-an-async-move-closure-in-rust
         let grpc_url = grpc_url.clone();
         async move {
@@ -138,6 +138,8 @@ async fn main() -> Result<(), Error> {
         }
     }))
     .await?;
+
+    output.sort_by(|a, b| a.address.cmp(&b.address));
 
     let output_str = serde_json::to_string_pretty(&output)?;
     fs::write(&output_path, output_str)?;
