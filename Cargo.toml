@@ -1,14 +1,14 @@
 [package]
-name          = "rust-template"
-description   = "Template for single-crate Rust projects"
+name          = "mars-airdrop-stats"
+description   = "Fetch on-chain statistics of MARS airdrop recipients"
 version       = "0.0.0"
 authors       = ["Larry Engineer <gm@larry.engineer>"]
 edition       = "2021"
 rust-version  = "1.65"
 license       = "UNLICENSED"
 homepage      = "https://larry.engineer"
-repository    = "https://github.com/steak-enjoyers/rust-template"
-documentation = "https://github.com/steak-enjoyers/rust-template#README"
+repository    = "https://github.com/larry0x/mars-airdrop-stats"
+documentation = "https://github.com/larry0x/mars-airdrop-stats#readme"
 keywords      = ["template"]
 
 [dependencies]
